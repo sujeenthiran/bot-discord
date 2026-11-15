@@ -1,4 +1,4 @@
-# Bot Discord – structures de données en Python
+<p align="center"><img src="docs/banner.svg" alt="Bot Discord – structures de données en Python" width="100%"></p>
 
 Bot Discord de modération et d'assistance, réalisé en 1re année à Ynov. L'objectif du projet était d'**implémenter soi-même les structures de données classiques** (liste chaînée, file, arbre, table de hachage) et de les utiliser dans un vrai programme.
 
