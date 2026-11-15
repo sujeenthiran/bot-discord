@@ -5,6 +5,7 @@ from module2 import queue
 from module3 import Tree
 from module4 import hashmap
 import json
+import os
 import requests
 
 intents = discord.Intents.all()
@@ -157,11 +158,14 @@ async def last_command(ctx):
         await ctx.send(f"Dernière commande exécutée par {ctx.author.name} : {last_command}")
 
 @bot.command(name="purge", help='Supprimer des lignes')
+@commands.has_permissions(manage_messages=True)  # réservé aux modérateurs
 async def clear_line(ctx, num_lines: int):
+    num_lines = max(1, min(num_lines, 100))  # borne le nombre de messages supprimés
     await ctx.channel.purge(limit=num_lines + 1)
     await ctx.send(embed=discord.Embed(description=f"**{num_lines}** lignes de commande ont été effacées.", color=discord.Color.blue()))
     
 @bot.command(name='role', help='Propose une liste de rôles existants à ajouter à un utilisateur.')
+@commands.has_permissions(manage_roles=True)  # réservé aux modérateurs
 async def autocomplete_command(ctx, member: discord.Member):
     roles = ctx.guild.roles
     message = f"{ctx.author.mention}, quel rôle voulez-vous ajouter à {member.mention} ?\n"
@@ -203,6 +207,7 @@ async def custom_help_command(ctx):
 
 
 @bot.command(name='addrole', help='Ajoute un rôle à un utilisateur.')
+@commands.has_permissions(manage_roles=True)  # réservé aux modérateurs
 async def add_role_command(ctx, member: discord.Member, role: discord.Role):
     attente.append('$addrole')
     await member.add_roles(role)
@@ -386,6 +391,7 @@ async def set_voice_limit(ctx, limit: int):
     ajouter_commande_utilisateur(ctx,user_id, command)
 
 @bot.command(name="deco" , help = "deconnecter un utiilisateur")
+@commands.has_permissions(move_members=True)  # réservé aux modérateurs
 async def disconnect_user(ctx, member: discord.Member = None):
     # Récupération du salon vocal dans lequel la commande est tapée
     voice_channel = ctx.author.voice.channel
@@ -440,7 +446,8 @@ async def on_message(message):
     # Vérifie si le message est un signalement
     if message.content.startswith('$signaler'):
         # Récupère le channel de signalements
-        channel_id = 000000000000000000  # Remplacez par l'ID du channel de signalements
+        # ID du salon de signalements, défini dans la variable d'environnement SIGNALEMENT_CHANNEL_ID
+        channel_id = int(os.getenv("SIGNALEMENT_CHANNEL_ID", "0"))
         channel = bot.get_channel(channel_id)
 
         if channel:
@@ -455,6 +462,16 @@ async def on_message(message):
             await message.channel.send(f"Le channel de signalement n'a pas été trouvé.")
 
     await bot.process_commands(message)
+
+@bot.event
+async def on_command_error(ctx, error):
+    # Message clair au lieu d'une erreur silencieuse quand un membre n'a pas les droits
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send(f"{ctx.author.mention} vous n'avez pas la permission d'utiliser cette commande.")
+    elif isinstance(error, commands.CommandNotFound):
+        return
+    else:
+        raise error
 
 #-----------------------------------------------------------------------------
 tree = Tree("En quoi vous-avez besoin d'aide | signalement | role | ?")
@@ -560,7 +577,7 @@ async def joke(ctx):
 def get_joke():
     url = "https://v2.jokeapi.dev/joke/Any?lang=fr"  # L'URL de l'API JokeAPI
 
-    response = requests.get(url)
+    response = requests.get(url, timeout=5)
     data = response.json()
 
     if data['type'] == 'single':
@@ -577,5 +594,8 @@ def run_bot(token):
     bot.run(token)
 
 if __name__ == '__main__':
-    token = 'JETON_RETIRE'
+    # Le jeton n'est jamais écrit dans le code : il est lu dans la variable d'environnement DISCORD_TOKEN
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        raise SystemExit("Définissez la variable d'environnement DISCORD_TOKEN (voir .env.example).")
     run_bot(token)
